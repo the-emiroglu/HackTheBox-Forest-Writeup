@@ -1,0 +1,178 @@
+[SIZE=4]Merhabalar arkadaşlar bugün HackTheBox’ta emekliye ayrılmış bir makina olan [GREEN][B]Forest[/B][/FONT] makinasının çözümünü sizlerle paylaşacağım. Windows işletim sistemine sahip bir makina ve bu makina ile ayrıca [GREEN][B]LDAP[/B][/FONT] ve [GREEN][B]Active Directory[/B][/FONT]
+gibi sistemlerde ne gibi teknikler uygulanabilir bunuda görmüş oluyoruz. Makinanın çözümüne başlamadan önce windows serverlere ve üzerinde çalışan servislere aşina olmayanlar için kısa tanımlar ekledim. Bunları okuyup anlarsak makinanın çözümü kafada daha çabuk oturur.[/FONT]
+
+[SIZE=4][RED][B]Lightweight Directory Access Protocol veya kısaca LDAP :[/B][/FONT] Tanım olarak LDAP, TCP/IP üzerinde çalışan dizin servislerini sorgulama ve değiştirme amacıyla kullanılan uygulama katmanı protokolüdür. Active Directory mimarisi içerisinde ise sorgulama (query) ve güncelleme (update) için kullanılan, temel bir directory servis protokolüdür. LDAP ile Active Directory objeleri, OU (Organizational Unit) ve CN (Common Name) kullanılarak Active Directory içerisinde yeniden tanımlanır. LDAP isimlendirme yöntemi; Active Directory objelerine erişimde kullanılır ve iki tanım içerir;
+
+[GREEN][B]1-)[/B][/FONT] Distinguished Names
+[GREEN][B]2-)[/B][/FONT] Relative Distinguished Names
+
+[SIZE=4][RED][B]Distinguished Name (DN)[/B][/FONT]
+Distinguished Names Tüm Active Directory objeleri, network ortamında kendilerine ulaşılmasını sağlayan komple path içeren, distinguished name’e sahiptir. Kısaca DN’ler CN, OU ve DC’lerin bileşimidir. Örneğin;
+
+[GREEN][B]CN=Emir EMIROGLU , OU=Teknik , DC=EMIROGLU, DC=local[/B][/FONT]
+
+Burada kullanılan CN Common Name, OU Organizational Unit (Kullanıcının Ait Olduğu Grup), DC ise Domain Controller anlamındadır. DC, Domain hiyerarşisini belirler. Tüm DNS akışı tek tek yazılır. Örneğin; Domain adı EMIROGLU.local ise, DC=EMIROGLU, DC=local şeklinde belirtilir.
+Bir başka örnek verecek olursak eğer “AKIF” isimli kullanıcı, “BEYAZ” isimli OU içinde bulunsun ve bağlı bulunduğu Domain adı “EMIROGLU.local” olsun. Bunun “Distingushed Name” yazılımı aşağıdaki şekilde olacaktır;
+
+[GREEN][B]CN=AKIF, OU=BEYAZ, DC=EMIROGLU, DC=local[/B][/FONT]
+
+Relative Distinguished Name LDAP distinguished name içerisinde yer alır ve objeye ait eşsiz (unique) tanımlamayı içerir. Yani Active Directory içinde belirtilen Domain içinde tektir. Örneğin;
+
+[GREEN][B]CN=AKIF, OU=BEYAZ, DC=EMIROGLU, DC=local[/B][/FONT]
+
+[SIZE=4][RED][B]sAMAccountName[/B][/FONT]
+Kullanıcının login adını temsil eder.
+
+[SIZE=4][RED][B]SN (Surname) - Kullanıcı Soyadı[/B][/FONT]
+Kullanıcının soyadı
+
+[IMG]https://imguploads.net/images/2020/03/24/Screenshot_1.png[/IMG]
+
+[SIZE=4][RED][B]Active Directory :[/B][/FONT] Microsoft tarafından özellikle Windows Server ve Client bilgisayar sistemleri için tasarlanmış olan içerisinde sunucu, client bilgisayar, kullanıcı ve yazıcı gibi bilgileri tutan bir dizin servisidir. Tabi bahsi geçen verileri tuttuğu için aynı bir veritabanıdır. Bu servis içerisinde yer alan [GREEN][B]Group Policy (Grup İlkesi)[/B][/FONT] yönetim aracı ile çeşitli kısıtlamalar yapabilir veya tek bir noktadan istediğimiz uygulamanın dağıtımını gerçekleştirebiliriz. Kaynakların kontrolü ve yönetiminin merkezileştirilmesi açısından büyük kolaylık sağladığı için çok tercih edilen bir servistir. Active Directory servisi, Domain Controller olarak adlandırılan sunucu veya sunucular üzerinde tutulur. İlgili servisin varsayılan konumu [GREEN][B]“%systemroot%NTDS”[/B][/FONT] şeklindededir.
+Veritabanı dosya ismi ise [GREEN][B]ntds.dit[/B][/FONT] (New Technology Directory Service-Directory Information Tree)’ tir. Bununla birlikte tüm işlemlerin geçici olarak yer aldığı, değişikliklerin veritabanına yazılmadan önce çeşitli sebeplerden ötürü saklandığı ve transaction log olarak adlandırılan [GREEN][B]edb.log[/B][/FONT] isimli dosya da, Active Directory servisinin çalışmasında kritik rol oynar. Bir diğer önemli veritabanı bileşeni ise ESE checkpoint olarak adlandırabileceğimiz [GREEN][B]ebd.chk[/B][/FONT] dosyasıdır. Bu dosyanın görevi edb.log a yazılan değişiklik bilgisinin “ntds.dit” içerisine, düzgün ve tutarlı olarak yazılıp yazılamadığını konrol etmektir.
+
+[SIZE=4][RED][B]Active Directory Mantıksal Yapısı[/B][/FONT]
+
+[SIZE=4][RED][B]Domain[/B][/FONT]
+Domain, Active Directory’nin en temel bileşenidir. Domain sistem yöneticisi tarafından benzersiz bir isim seçilerek oluşturulmalıdır. Ayrıca Domain’ler güvenlik noktasında belli sınırlara sahiptir. Eğer sistem yöneticisi ayrıca bir izin belirlememişse, bir kullanıcının hakları sadece o Domain içerisinde geçerli olacaktır. Her bir Domain kendi güvenlik yapısına sahiptir. Domain’ler ayrıca replikasyon birimi olarak adlandırılır. Bir Domain içerisinde, Active Directory veritabanı kopyalarını bulunduran Domain Controller’lar bu koyaları Domain içerisinde yapılan değişiklikleri birbirlerine kopyalarak replikasyon yaparlar.
+
+[SIZE=4][RED][B]Organizational Unit[/B][/FONT]
+Organizational Unit bir Domain içerisindeki kullanıcıları, grupları veya bilgisayarları organize etmek amacıyla oluşturulmuş objelerdir. Organizasyonun ihtiyacını karşılamak ve yönetimi kolaylaştırmak noktasında objeleri gruplamak amacıyla kullanabilirsiniz.
+Örnek olarak, objeleri gruplarken yönetimsel gereksinimler ön planda tutalabilir. Organizasyonda bir yönetici kullanıcılardan diğer yönetici ise bilgisayarlardan sorumlu olacaksa, biri kullanıcılar için biri de bilgisayarlar için iki adet OU oluşturulur ve kullanıcılar birinde bilgisayarlar da diğerinde toplanır. Son olarak ikisine de ayrı ayrı yönetciler atanabilir. Veya departmansal gruplandırmalar yapılabilir. Örneğin bir “Muhasebe” bir de “Pazarlama” departmanları için OU oluşturulur ve bu departmanlarda çalışan kullanıcılar ilgili OU’lara yerleştirildikten sonra departman şefleri bu birimlere yönetici olarak atanabilir. Bu işlemler aynı zamanda biz sistem yöneticilerinin işlerini kolaylaştıracaktır.
+
+[SIZE=4][RED][B]Tree ve Forest[/B][/FONT]
+Oluşturulan ilk Windows Server Domain’i, Active Directory yapısındaki Kök Domain’i (Root Domain) ifade eder. Bundan sonra oluşturulacak olan yeni ek Domain’ler dizinin mantıksal Tree veya Forest yapısını oluşturacaktır.
+
+[SIZE=4][RED][B]Tree[/B][/FONT]
+Bir Tree yapısında yeni bir Domain eklendiği zaman, yeni eklenen Domain sondan eklendiği Domain’inin Child Domain’i durumunda olur ve eklendiği Domain de eklenen Domain için Parent Domain olur. Yeni oluşturulan Child Domain’in ismi Parent Domain’den gelen isimle birleştirilir ve yeni oluşan Domain’in DNS ismi ortaya çıkar.
+Örneğin “emiremiroglu.local” bir Root Domain’dir. Bu Domain’e eklenecek yeni bir Domain “emiroglu.local” Domain’inin Child Domain’i olacaktır. Buna örnek olarak “mail.emiroglu.local” Domain’ini gösterebiliriz. Bu örnekte mail.emiroglu.local, emiroglu.local Domain’inin Child Domain’i olacaktır. Emiroglu.local Domain’i ise Parent Domain konumundadır.
+
+[SIZE=4][RED][B]Forest[/B][/FONT]
+Forest, birden fazla Tree’nin birleşmiş halidir. Oluşturulan ilk Domain bir Tree’yi ifade eder ve ilk Tree’nin oluşturulmasıyla Forest’da oluşmuş olur. Sonradan bu Forest’a eklenecek olan Tree’ler, diğer Tree’lerle aynı isim aralığını paylaşmayacak olasalar da aynı Schema ve Global Catalog’a sahip olurlar. Forest oluşturulurken kurulmuş olan ilk Tree Forest-Root olarak bilinir ve diğer Tree’ler bu Forest Root altında toplanırlar.
+
+[SIZE=4][RED][B]Global Catalog[/B][/FONT]
+Global Catalog (GC), Active Directory Forest’ ı içinde yer alan her objeyi bulunduran bir veritabanıdır ve Global Catalog Server‘ larda tutulur. Bu barındırılan özellikler, varsayılan olarak, sorgulamalar esnasında en sık kullanılan özelliklerdir. Global Catalog kullanıcılara şu hizmetleri sunar;
+
+[GREEN][B]1-)[/B][/FONT] Gereken verinin nerede olduğundan bağımsız olarak Active Directory objeleri hakkında bilgiler sunar.
+[GREEN][B]2-)[/B][/FONT] Bir ağa logon olunurken Universal Group Membership bilgisini kullanır.
+
+Global Catalog Sunucusu Domain’deki bir Domain Controller’dır ve Domain’de oluşturulan ilk Domain Controller otomatik olarak Global Catalog seviyesine yükseltilir. Sonradan ek Global Catalog Sunucular eklenebilir.
+
+[SIZE=4][RED][B]Active Directory Schema[/B][/FONT]
+Kullanıcı, grup, bilgisayar ve yazıcılar gibi bütün objelere ait bilgileri içerir. Forest içerisinde, sadece bir Schema bulunur ve bütün obje bilgileri bu Schema üzerine yazılır. Kullanıcıların çalıştıkları bölümler ve doğum yeri gibi bilgileri buna örnek olarak verebiliriz. Schema bilgileri, Active Directory veritabanı (database) içerisinde depolanır.
+
+[GREEN][B]1-)[/B][/FONT] Kullanıcı uygulamaları için dinamik bir yapı sunar. Kullanıcıların obje araştırma işlemleri, Schema üzerinden gerçekleşir.
+[GREEN][B]2-)[/B][/FONT] Yeni oluşturulan veya değiştirilen obje dinamik olarak Schema içerisinde güncellenir.
+[GREEN][B]3-)[/B][/FONT] Obje sınıf ve niteliklerinin korunmasında, discretionary access control lists(DACLs) kullanılır.
+[GREEN][B]4-)[/B][/FONT] DACLs ile Schema üzerinde yalnızca yetkilendirilmiş kullanıcıların (authorized users) değişiklik yapabilmesi sağlanır.
+
+[SIZE=4][RED][B]Kerberos :[/B][/FONT] güvenli olmayan bir ağ üzerinde haberleşen kaynakların,  bilet mantığını kullanarak kendi kimliklerini ispatlamak suretiyle iletişim kurmalarını sağlayan bir bilgisayar ağı kimlik doğrulama protokolüdür. Protokolün tasarımcıları, ilk başta istemci-sunucu modelini hedef almış ve bu doğrultuda hem kullanıcının hem de sunucunun birbirlerinin kimliklerini doğrulamasını sağlayan karşılıklı kimlik doğrulama özelliğini sunmuşlardır. Kerberos protokol mesajları, izinsiz dinlemelere ve yansıtma ataklarına karşı dayanıklıdır. Yani Brute-Force ataklara karşı dayanıklıdır. Kerberos simetrik anahtar şifreleme üzerine inşa edilmiştir ve güvenilir bir üçüncü doğrulayıcıya (trusted third party) ihtiyaç duyar, isteğe bağlı olarak kimlik doğrulamanın belli aşamalarında açık anahtar şifreleme modelini de kullanabilir. Kerberos varsayılan port olarak UDP 88. portu kullanır.
+
+[SIZE=4][RED][B]Kısaca Şöyle Çalışır[/B][/FONT]
+[IMG]https://imguploads.net/images/2020/03/24/1_Ss-nqynPeCDwMfdQBN6hMg.png[/IMG]
+
+[GREEN][B]1-)[/B][/FONT] Alice,AS(Authentication Service) e al benim kullanıcı bilgilerim,bak.Eğer bu sistemde bir kullanıcıysam bana bilet sağlayan bilet (TGT,Ticket Granting Ticket) ver talebinde bulunur.
+[GREEN][B]2,3-)[/B][/FONT] AS,kontrol eder ve evet buna hakkın var derse,bilet sağlayan bilet (TGT,Ticket Granting Ticket) i Alice e yollar,yollar yollamasına da öyle plain-text olarak yollamaz Alice’in kullanıcı password u ile hash işlemine sokar ve yollar,hash işlemine sokmasındaki amaç bilet sağlayan bilet (TGT,Ticket Granting Ticket) i ağ üzerinden yolladığı için ve plain-text olması güvenli olmayacağı için bunu sadece Alice kullanabilsin diye Alice’nin parolası ile hashler ve hashlenmiş mesajı sadece Alice kendi parolası ile açar ve Alice dışındakiler ağ üzerinde bilet sağlayan bilet (TGT,Ticket Granting Ticket) i yakalasalar bile kullanılan hash’in anahtarına sahip olmadıkları için ellerindeki bu bilet sağlayan bilet hiçbir işe yaramaz.
+[GREEN][B]4-)[/B][/FONT] Alice elindeki TGT(Ticket Granting Ticket) ile TGS(Ticket Granting Service) den kullanmak istediği servis için bilet talep eder.
+[GREEN][B]5-)[/B][/FONT] TGT de bir sorun yoksa,TGS al sana kullanmak istediğin servis için bilet der.
+[GREEN][B]6-)[/B][/FONT] Alice bu servis biletiyle ulaşmak istediği ağ servisine bağlanma isteği yollar.
+[GREEN][B]7-)[/B][/FONT] Bağlanılmak istenen servis,ona yollanan servis bileti sayesinde bağlantıya izin verir.
+
+[IMG]https://imguploads.net/images/2020/03/25/1b4da03abf43b2a25.png[/IMG]
+
+Her zaman olduğu gibi hedef makina hakkında mümkün olduğu kadar çok bilgi toplamamız gerekiyor. Bunun için ilk olarak nmp ile port taraması yapıp hedef üstünde neler var hangi servisler çalışıyor hangi portlar açık bunlara bakmak istiyorum. Aşağıdaki komutu terminale yazarak tarama işlemine başlıyorum.
+
+[GREEN][B]nmap -sV -sC -p 1-10000 10.10.10.161[/B][/FONT]
+
+Aşağıdaki resimdede görüldüğü gibi hedef üzerinde çok sayıda portun açık olduğunu görebiliyoruz. Hedef makina bir windows makinası olduğu için çok sayıda portun açık olması olağan bir durumdur. Portları ve üstünde çalışan servisleri inceliyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/27ad7d09ffc5ff3b1.png[/IMG]
+
+Hedef üzerinde kerberos, LDAP, Active Directory, MSRPC, netbios gibi servisler çalışmakta. önemli olan servislerin ne işe yaradığını yukarıda detaylıca anlattım. Makinaya sızmak ve root olabilmek için aşağıdaki yolu takip edebiliriz.
+
+[GREEN][B]1-)[/B][/FONT] Nmap Taraması
+[GREEN][B]2-)[/B][/FONT] Kullanıcı Numaralandırma (Tespit)
+[GREEN][B]3-)[/B][/FONT] Kullanıcı Bilgilerini Alma
+[GREEN][B]4-)[/B][/FONT] Kullanıcı Üstünden Sisteme Girme
+[GREEN][B]5-)[/B][/FONT] Yetki Yükseltme
+[GREEN][B]6-)[/B][/FONT] Root Olma
+
+Birinci adım olan nmap taramasını yapıp gerekli bilgileri aldık şimdi [GREEN][B]“User Enumaration“[/B][/FONT] yapmamız gerekli bunun farklı yolları var rpcclient ile Metasploit üzerinden yada enum4linux tool yardımıyla bunu gerçekleştirebiliriz. Hepsini aşağıda sırasıyla gösteriyorum. seçenek size kalmış üç tool’da kali üzerinde hazır geldiğinden rahatlıkla kullanabilir.
+
+[IMG]https://imguploads.net/images/2020/03/25/37bf4f8099d6d47a2.png[/IMG]
+
+Metasploit üzerinden kullanıcı numaralandırma (tespit) işlemini bu şekilde gerçekleştirebiliriz.
+
+[IMG]https://imguploads.net/images/2020/03/25/449a55e46d18585ae.png[/IMG]
+
+[GREEN][B]rpcclient[/B][/FONT] yardımcı tool’u ile yine aynı işlemi yapabiliriz. Kali üzerinde hazır olarak gelmektedir. Terminale [GREEN][B]rpcclient -U ““ 10.10.10.161[/B][/FONT] yazdıktan sonra passwordu enter’leyerek geçiyorum (şuan herhangi bir kullanıcı yada şifre bilmiyoruz)
+[GREEN][B]enumdomusers[/B][/FONT] komutu ile kullanıcı listesini çekiyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/5f4add3112fc35019.png[/IMG]
+
+[GREEN][B]enum4linux[/B][/FONT] tool’u yardımıylada yine user list aşağıdaki gibi çekebilirim. Bu tool ile çok daha fazla bilgi alabiliriz. Terminale [GREEN][B]enum4linux -a 10.10.10.161[/B][/FONT] yazmamız yeterlidir.
+
+[IMG]https://imguploads.net/images/2020/03/25/6.png[/IMG]
+
+Kullanıcı numaralandırma işlemi bitip kullanıcılarımızı tespit ettikten sonra bu username’leri bir metin dosyasına kayıt ediyoruz. buradaki amacımız ele geçirdiğimiz kullanıcılardan hangisi yada hangilerinin do not require preauthentication (ön kimlik doğrulaması gerektirmeyen) hesaplar olduğunu bulamaktır. bunun için kerberos servisini exploit etmeye çalışacağız. çünkü kerberos kimlik doğrulama servisimiz. bu işlem için [GREEN][B]“GetNPUsers“[/B][/FONT] isimli bir yardımcı tool kullanıcam. terminale [GREEN][B]“GetNPUsers.py HTB.local/ -usersfile /root/Resimler/Forest/user.txt -format john -outputfile hashes.txt -dc-ip 10.10.10.161“[/B][/FONT] yazıp entere basıyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/7.png[/IMG]
+
+Aldığımız hash dosyasını john ile kırıyoruz. bunun için terminale [GREEN][B]“john --wordlist=/usr/share/wordlists/rockyou.txt hashes.txt“[/B][/FONT] yazıp entere basıyoruz.
+
+[IMG]https://imguploads.net/images/2020/03/25/8.png[/IMG]
+
+[B]Kullanıcı Adımız : svc-alfresco[/B]
+[B]Şifre : s3rvice[/B]
+
+Artık [GREEN][B]Evil-WinRM[/B][/FONT] programı ile windows üzerinde shell açmaya geldi. WinRM (Windows Remote Management - Windows Uzaktan Yönetim), WSMan(WS-Yönetim) Protokolü’nün Microsoft uygulamasıdır. Terminale girip uygulamayı başlatıyoruz. kullanıcı adı ve şifre bilgilerimizi yazıp hedef makineye bağlanıyoruz.
+
+[IMG]https://imguploads.net/images/2020/03/25/9.png[/IMG]
+
+Buradan /Desktop dizine geçip user.txt dosyasını okuyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/10.png[/IMG]
+
+şimdi yetki yükseltmeliyiz bunun için [GREEN][B]BloodHound[/B][/FONT] aracını kullanacağız. [GREEN][B]whoami /all[/B][/FONT] komutuyla kullanıcı hakkında sahip olduğu ayrıcalıkları inceleyebilirim. kullanıcının sahip olduğu ayrıcalıkları listelediğimde [GREEN][B]HTP\Privileged IT Accounts[/B][/FONT] güvenlik gurubuna ait olduğunu görüyorum. Bu kullanıcı normal bir kullanıcıdan daha fazla yetkiye sahip ve active directory içindeki bağlantıları bu hesabı daha bir ayrı hesap kılıyor. Kısacası yetki yükseltmeye müsait bir kullanıcı.
+
+[IMG]https://imguploads.net/images/2020/03/25/11.png[/IMG]
+
+şimdide kullanıcının hangi guruplara üye olduğuna bakalım bunun için [GREEN][B]net user svc-alfresco[/B][/FONT] komutunu giriyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/12.png[/IMG]
+
+[GREEN][B]Bloodhound[/B][/FONT] aracı Active Directory üzerinde gizli hesaplar arası ilişkileri bulmak için tasarlanmış bir programdır. verileri grafiksel ortama döker ve ayrıcalık yükseltmesine giden en kısa yolu bize gösterir. Bloodhound’u kurduktan sonra terminalde ilk önce veritabanını daha sonra bloodhound programını başlatıyorum. [GREEN][B]neo4j console start[/B][/FONT] yazarak database bağlantısını başlatıyorum. daha sonrada bloodhound programını çalıştıracağım. aşağıdaki resimdede görüldüğü üzere bana [GREEN][B]http://localhost:7474/[/B][/FONT] üzerinden bağlantı yapabileceğimi söylüyor giriyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/13.png[/IMG]
+
+şimdide bloodhound’u çalıştırıyorum. DB adımı ve belirlediğim şifremi girip bağlantımı sağlıyorum. şimdi buraya incelememiz gereken veri dosyasını yüklememiz gerekmekte. bunun hedef makina üzerinden alacağız. Bunun için Evil-RM programına dönüyoruz ve kaldığımız yerden devam ediyoruz. Kendi makinamdan [GREEN][B]/BloodHound/Ingestors[/B][/FONT] dizinin içerisine giriyorum. burada bulunan [GREEN][B]“SharpHound.ps1“[/B][/FONT] dosyasını karşı tarafa yükleyip çalıştaracağız bu dosya powershell betik dosyasıdır powershell üzerinde istediğimiz hareketleri yapmamıza olanak tanıyacak. Dosyayı karşı tarafa yüklemek için Evil-WinRM üzerinden [GREEN][B]upload /root/Resimler/Forest/BloodHound/Ingestors/SharpHound.ps1 C:\Users\svc-alfresco\pictures\SharpHound.ps1[/B][/FONT] komutu girerek entere basıyorum bu yolla dosyamı karşı tarafa upload etmiş oluyorum. Dosyamızı karşı tarafa upload etmenin bir diğer yoluda Python üzerinden [GREEN][B]python -m SimpleHTTPServer 80[/B][/FONT] komutunu girerek te bağlantı sağlayıp powershell üstünden dosya transferi yapabilirdim
+
+[IMG]https://imguploads.net/images/2020/03/25/14.png[/IMG]
+
+daha sonra Evil-WinRM üzerinden [GREEN][B]Import-Module ./SharpHound.ps1[/B][/FONT] komutunu çalıştırarak betiğimizi powershell içine yüklüyoruz. Artık veri dosyamızı alabiliriz. yine Evil-WinRM üzerinden [GREEN][B]Invoke-Bloodhound -collectionmethod All -Domain “htb.local“ -ldapuser svc-alfresco -ldappass s3rvice[/B][/FONT] komutunu girdikten sonra veri dosyamız oluşacak. dizini tekrar ls komutu ile görüntülediğimizde .zip dosyasını görmüş olacaksınız. Bu dosyayı kendi bilgisayarımıza alıp bloodhound içine atacağız.
+
+[IMG]https://imguploads.net/images/2020/03/25/15.png[/IMG]
+
+veri dosyasını kendi bilgisayarımıza çekmke için Evil-WinRM uygulamasında aşağıdaki komutu giriyoruz. [GREEN][B]download C:\Users\svc-alfresco\pictures\20200324114804_BloodHound.zip /root/Resimler/Forest/EMIROGLU.zip[/B][/FONT]
+
+[IMG]https://imguploads.net/images/2020/03/25/16.png[/IMG]
+
+aşağıdaki resimde exchange windows permission@htb.local kullanıcısından HTB.LOCAL sunucuna WriteDACL yetkisi bulunmaktadır. Yani yetki yükseltilebilir. HTB.LOCAL ise domain adminin Memberof kısmında olduğundan root olabiliriz. izleyeceğimiz yolu resim üzerinde görebiliyoruz. bunun için hedefimiz exchange windows permission@htb.local olacak.
+
+[IMG]https://imguploads.net/images/2020/03/25/17.png[/IMG]
+
+exchange windows permission@htb.local gurubuna kullanıcımızı ekleyelim. bunun için Evil-WinRM uygulamasından [GREEN][B]net group “Exchange Windows Permissions“ svc-alfresco /ADD[/B][/FONT] komutunu yazalım. Bu işlemden sonra kullanıcımız Exchange Windows Permissions gurubuna dahil olup yetkili olacak.
+
+[IMG]https://imguploads.net/images/2020/03/25/18.png[/IMG]
+
+artık ntml saldırı yapıp root yetkisi alabiliriz. bunun için [GREEN][B]“ntlmrelayx.py“[/B][/FONT] adında yardımcı bir tool kullanacağım. terminale [GREEN][B]python3 ntlmrelayx.py -t ldap://10.10.10.161 --escalate-user svc-alfresco -domain htb.local[/B][/FONT] yazıyorum.
+
+[IMG]https://imguploads.net/images/2020/03/25/19.png[/IMG]
+
+bu saldırı sonrasında kullanıcılara ait hashleri alabilmek için [GREEN][B]secretsdump.py[/B][/FONT] isimli toolu kullanacağım. Terminale [GREEN][B]python3 secretsdump.py htb.local/svc-alfresco@10.10.10.161 -just-dc[/B][/FONT] bu işlem sonrasında kullanıcılara ait olan hash bilgilerini dump etmiş olacağız. Bize root olabilmek için Administrator un hash bilgileri lazım.
+
+[IMG]https://imguploads.net/images/2020/03/25/217028bff8fc13444d.png[/IMG]
+
+son olarakta wmiexec.py toolu yardımıyla karşı tarafta oturum açıyoruz. terminale [GREEN][B]python3 wmiexec.py -hashes aad3b435b51404eeaad3b435b51404ee:32693b11e6aa90eb43d32c72a07ceea6 Administrator@10.10.10.161[/B][/FONT] yazıyoruz. Bundan sonra yapılacak şey administrator\desktop dizini altında root.txt dosyasını okumaktır.
+
+[IMG]https://imguploads.net/images/2020/03/25/22bbeb09d066b6ac3f.png[/IMG]
